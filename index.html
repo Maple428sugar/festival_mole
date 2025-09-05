@@ -61,9 +61,7 @@
   footer{opacity:.75;font-size:.9rem;margin-top:10px}
 
   /* ゲーム前のオーバーレイ（二段階開始用） */
-  .overlay{
-    position:relative;
-  }
+  .overlay{ position:relative; }
   .overlay .start-cover{
     position:absolute; inset:0; display:grid; place-items:center;
     background:rgba(5,10,25,.55); backdrop-filter: blur(2px);
@@ -76,6 +74,13 @@
   }
   .muted{opacity:.7}
   .disabled-grid .hole{filter:grayscale(0.25) brightness(.8)}
+
+  /* ★スマホのタップ最適化（追加） */
+  .grid, .hole{
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+  }
+
   @media (max-width:600px){ .hud{gap:10px} .menu .row{flex-direction:column} }
 </style>
 </head>
@@ -113,7 +118,6 @@
         </label>
       </div>
       <div class="row">
-        <!-- ここでは開始しない：“ゲームへ”だけ -->
         <button id="btnGoGame">▶ ゲームへ</button>
         <button id="btnRanks" class="secondary">🏆 ランキングを見る</button>
         <button id="btnHow" class="ghost">❓ 遊び方</button>
@@ -126,7 +130,7 @@
     </div>
   </section>
 
-  <!-- ゲーム画面（ここで“もう一度スタート”） -->
+  <!-- ゲーム画面 -->
   <section class="screen" id="screenGame">
     <div class="bar card" aria-hidden="true"><i id="timebar"></i></div>
     <main class="card overlay" style="margin-top:12px">
@@ -359,13 +363,11 @@ function buildGrid(){
 
 /* ========= ホーム → ゲーム（まだ開始しない） ========= */
 btnGoGame.addEventListener('click', ()=>{
-  // 名前・難易度を保存
   playerName = (inputName.value || 'Player').slice(0,16);
   localStorage.setItem('mole_player_name', playerName);
   currentDiff = inputDiff.value;
   localStorage.setItem('mole_last_diff', currentDiff);
 
-  // ゲーム画面へ遷移（Ready状態）
   showScreen('game');
   grid.classList.add('disabled-grid');
   startCover.style.display = 'grid';
@@ -375,7 +377,6 @@ btnGoGame.addEventListener('click', ()=>{
   hudDiff.textContent = currentDiff;
   updateHudHiscore();
 
-  // “未開始状態”にリセット
   resetGameUi();
 });
 
@@ -412,6 +413,7 @@ clearRankBtn.addEventListener('click', ()=>{
 });
 
 /* ========= ゲーム本体 ========= */
+/* 既存の click（PC向け）は残す */
 grid.addEventListener('click', (e)=>{
   const hole = e.target.closest('.hole');
   if(!hole || !isPlaying) return;
@@ -433,6 +435,32 @@ grid.addEventListener('click', (e)=>{
   despawn(hole);
   scheduleNext();
 });
+
+/* ★スマホ/タブレット/ペン対応：pointerdown を追加 */
+grid.addEventListener('pointerdown', (e)=>{
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const hole = e.target.closest('.hole');
+  if(!hole || !isPlaying) return;
+  if(!hole.classList.contains('active')) return;
+  if(hole.dataset.whacked === '1') return;
+
+  hole.dataset.whacked = '1';
+
+  combo++;
+  let add = 1 + (combo >= COMBO_THRESHOLD ? 1 : 0);
+  score += add;
+  scoreEl.textContent = score;
+
+  hole.classList.add('flash');
+  hole.querySelector('.hitfx').textContent = add >= 2 ? `+${add}🔥` : '+1';
+  setTimeout(()=>hole.classList.remove('flash'), 450);
+
+  if (navigator.vibrate) navigator.vibrate(VIBRATE_MS);
+
+  clearTimeout(hideTimer);
+  despawn(hole);
+  scheduleNext();
+}, { passive: true });
 
 stopBtn.addEventListener('click', ()=> endGame(false));
 backHomeBtn.addEventListener('click', ()=> { if(isPlaying) endGame(false); showScreen('home'); });
@@ -558,4 +586,3 @@ const rand = (min, max)=> Math.floor(Math.random()*(max-min+1))+min;
 </script>
 </body>
 </html>
-
