@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>文化祭モグラたたき（スタート/ランキング付き・二段階開始＆難易度別ハイスコア）</title>
+<style>
+  :root{
+    --bg:#0b0f1a; --card:#111829; --accent:#59c; --accent2:#7df;
+    --text:#eaf2ff; --warn:#ff637d; --ok:#79ffa1;
+    --hole:#0e1430; --grid-gap:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%, #13214a 0, #0b0f1a 60%);color:var(--text);font-family:system-ui, -apple-system,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP",sans-serif}
+  .wrap{max-width:960px;margin:24px auto;padding:20px}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,.05), transparent);border:1px solid rgba(255,255,255,.08);box-shadow:0 8px 30px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.03);border-radius:18px}
+  header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .title{font-weight:800;letter-spacing:.02em;font-size:clamp(20px,4vw,28px)}
+  .hud{display:flex;gap:14px;align-items:center;padding:10px 14px}
+  .hud div{padding:8px 12px;background:rgba(255,255,255,.04);border-radius:12px;border:1px solid rgba(255,255,255,.06)}
+  .hud b{font-size:1.1rem}
+  button, select, input[type="text"]{
+    background:linear-gradient(180deg, var(--accent2), var(--accent));
+    border:none;color:#07223a;font-weight:800;border-radius:12px;
+    padding:10px 14px;box-shadow:0 6px 18px rgba(0,128,255,.35);transition:transform .08s ease, filter .2s ease; font-size:14px
+  }
+  button.secondary{background:linear-gradient(180deg, #7aa8, #456a99); color:#eaf2ff}
+  button.ghost{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.15);box-shadow:none}
+  input[type="text"], select{color:#eaf2ff;background:rgba(255,255,255,.06);box-shadow:none;border:1px solid rgba(255,255,255,.15)}
+  button:active{transform:translateY(1px)}
+  /* Screens */
+  .screen{display:none}
+  .screen.active{display:block}
+  .menu{padding:22px;display:grid;gap:16px}
+  .menu .row{display:flex;gap:10px;flex-wrap:wrap}
+  .menu .row > *{flex:1;min-width:180px}
+  .menu h2{margin:.3rem 0 0.2rem}
+  .menu small{opacity:.75}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--grid-gap);padding:16px}
+  .hole{
+    position:relative;aspect-ratio:1/1.05;border-radius:18px;
+    background:radial-gradient(120% 90% at 50% 15%, #22305f 0, var(--hole) 40%, #0a0f23 100%);
+    border:1px solid rgba(255,255,255,.06);overflow:hidden;
+    box-shadow:inset 0 -16px 40px rgba(0,0,0,.45), 0 10px 30px rgba(0,0,0,.25);
+    transition:filter .18s ease, transform .18s ease;
+  }
+  .hole.lit{filter:brightness(1.18);transform:translateY(-2px)}
+  .mole{position:absolute;left:50%;bottom:-58%;transform:translateX(-50%);font-size:clamp(40px,6vw,58px);filter:drop-shadow(0 8px 10px rgba(0,0,0,.45));transition:bottom .14s cubic-bezier(.2,.9,.2,1.2);user-select:none;pointer-events:none}
+  .hole.active .mole{bottom:10%}
+  .hitfx{position:absolute;inset:0;display:grid;place-items:center;font-weight:900;color:var(--ok);font-size:clamp(18px,3.2vw,28px);opacity:0;transform:translateY(6px);pointer-events:none}
+  .hole.flash .hitfx{animation:flash .45s ease}
+  @keyframes flash{0%{opacity:0;transform:translateY(10px) scale(.9)}20%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-14px) scale(1.05)}}
+  .bar{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin:0 12px}
+  .bar>i{display:block;height:100%;width:100%;background:linear-gradient(90deg, #7df, #59c);transform-origin:left;transform:scaleX(1)}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;opacity:.85;padding:6px 10px}
+  .table{width:100%;border-collapse:collapse}
+  .table th,.table td{padding:10px;border-bottom:1px solid rgba(255,255,255,.1);text-align:left}
+  .tabs{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .tab-btn{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.15);padding:8px 12px;border-radius:999px}
+  .tab-btn.active{background:linear-gradient(180deg, var(--accent2), var(--accent));color:#07223a;border:none}
+  footer{opacity:.75;font-size:.9rem;margin-top:10px}
+
+  /* ゲーム前のオーバーレイ（二段階開始用） */
+  .overlay{
+    position:relative;
+  }
+  .overlay .start-cover{
+    position:absolute; inset:0; display:grid; place-items:center;
+    background:rgba(5,10,25,.55); backdrop-filter: blur(2px);
+    border-radius:18px;
+  }
+  .overlay .start-panel{
+    display:grid; gap:12px; padding:20px; text-align:center;
+    background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+    border-radius:16px;
+  }
+  .muted{opacity:.7}
+  .disabled-grid .hole{filter:grayscale(0.25) brightness(.8)}
+  @media (max-width:600px){ .hud{gap:10px} .menu .row{flex-direction:column} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">🎪 ゲーミングカフェ：<span style="color:#7df">モグラたたき</span></div>
+    <div class="card hud" role="status" aria-live="polite" id="hudGame" style="display:none">
+      <div>👤 <b id="hudName">Player</b></div>
+      <div>🎚️ <b id="hudDiff">normal</b></div>
+      <div>⏱️ 残り <b id="time">30</b>s</div>
+      <div>🔨 スコア <b id="score">0</b></div>
+      <div>🏆 <span class="muted">ハイスコア</span> <b id="hiscore">0</b></div>
+    </div>
+  </header>
+
+  <!-- スタート画面 -->
+  <section class="screen active" id="screenHome">
+    <div class="card menu">
+      <h2>スタートメニュー</h2>
+      <div class="row">
+        <label style="display:flex;flex-direction:column;gap:6px">
+          ニックネーム
+          <input type="text" id="inputName" placeholder="例: たまき" maxlength="16"/>
+          <small>※空なら「Player」になります（保存され次回も自動入力）</small>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:6px">
+          難易度
+          <select id="inputDiff">
+            <option value="easy">かんたん</option>
+            <option value="normal" selected>ふつう</option>
+            <option value="hard">むずかしい</option>
+          </select>
+          <small>スピードと表示時間が変わります</small>
+        </label>
+      </div>
+      <div class="row">
+        <!-- ここでは開始しない：“ゲームへ”だけ -->
+        <button id="btnGoGame">▶ ゲームへ</button>
+        <button id="btnRanks" class="secondary">🏆 ランキングを見る</button>
+        <button id="btnHow" class="ghost">❓ 遊び方</button>
+      </div>
+      <div class="legend">
+        <span>1プレイ = 30秒</span>
+        <span>連続ヒットでボーナス</span>
+        <span>スマホOK / 軽いバイブ</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ゲーム画面（ここで“もう一度スタート”） -->
+  <section class="screen" id="screenGame">
+    <div class="bar card" aria-hidden="true"><i id="timebar"></i></div>
+    <main class="card overlay" style="margin-top:12px">
+      <div id="grid" class="grid disabled-grid" aria-label="モグラグリッド" role="grid"></div>
+
+      <!-- 二段階開始のオーバーレイ -->
+      <div class="start-cover" id="startCover">
+        <div class="start-panel">
+          <div style="font-weight:800">👤 <span id="readyName">Player</span> ／ 🎚️ <span id="readyDiff">normal</span></div>
+          <button id="btnStartPlay">▶ スタート</button>
+          <button id="btnBackFromReady" class="ghost">← メニューへ戻る</button>
+          <small class="muted">※ スタート後は30秒で自動終了します</small>
+        </div>
+      </div>
+    </main>
+
+    <div style="display:flex;gap:10px;padding:10px" class="card">
+      <button id="stopBtn" class="secondary">■ 終了</button>
+      <button id="backHomeBtn" class="ghost">← メニューへ戻る</button>
+    </div>
+  </section>
+
+  <!-- ランキング画面 -->
+  <section class="screen" id="screenRank">
+    <div class="card menu">
+      <h2>🏆 ランキング（難易度別）</h2>
+      <div class="tabs">
+        <button class="tab-btn active" data-diff="easy">かんたん</button>
+        <button class="tab-btn" data-diff="normal">ふつう</button>
+        <button class="tab-btn" data-diff="hard">むずかしい</button>
+      </div>
+      <div class="card" style="padding:12px">
+        <table class="table" aria-label="ランキング表">
+          <thead><tr><th style="width:3em">#</th><th>名前</th><th>スコア</th><th>日時</th></tr></thead>
+          <tbody id="rankBody"></tbody>
+        </table>
+      </div>
+      <div class="row">
+        <button id="backHomeBtn2" class="ghost">← メニューへ戻る</button>
+        <button id="clearRankBtn" class="secondary">ランキングをクリア</button>
+      </div>
+      <small>※ このランキングはこの端末（ブラウザ）に保存されています。</small>
+    </div>
+  </section>
+
+  <footer>© 文化祭 Gaming Cafe</footer>
+</div>
+
+<script>
+/* ========= 基本設定 ========= */
+const GAME_SECONDS = 30;
+const DIFFICULTY = {
+  easy:   { min: 700, max: 1100, visible: 900 },
+  normal: { min: 520, max: 900,  visible: 750 },
+  hard:   { min: 380, max: 700,  visible: 620 },
+};
+const COMBO_THRESHOLD = 3;
+const VIBRATE_MS = 25;
+
+/* ========= 要素参照 ========= */
+const screenHome = document.getElementById('screenHome');
+const screenGame = document.getElementById('screenGame');
+const screenRank = document.getElementById('screenRank');
+
+const inputName = document.getElementById('inputName');
+const inputDiff = document.getElementById('inputDiff');
+const btnGoGame = document.getElementById('btnGoGame');
+const btnRanks = document.getElementById('btnRanks');
+const btnHow = document.getElementById('btnHow');
+
+const grid = document.getElementById('grid');
+const stopBtn = document.getElementById('stopBtn');
+const backHomeBtn = document.getElementById('backHomeBtn');
+const backHomeBtn2 = document.getElementById('backHomeBtn2');
+
+const timeEl  = document.getElementById('time');
+const scoreEl = document.getElementById('score');
+const hiscoreEl = document.getElementById('hiscore');
+const timebar = document.getElementById('timebar');
+
+const hudGame = document.getElementById('hudGame');
+const hudName = document.getElementById('hudName');
+const hudDiff = document.getElementById('hudDiff');
+
+/* 二段階開始用 */
+const startCover = document.getElementById('startCover');
+const btnStartPlay = document.getElementById('btnStartPlay');
+const btnBackFromReady = document.getElementById('btnBackFromReady');
+const readyName = document.getElementById('readyName');
+const readyDiff = document.getElementById('readyDiff');
+
+/* ランキングUI */
+const tabButtons = [...document.querySelectorAll('.tab-btn')];
+const rankBody = document.getElementById('rankBody');
+const clearRankBtn = document.getElementById('clearRankBtn');
+
+/* ========= 状態 ========= */
+let holes = [];
+let isPlaying = false;
+let timeLeft = GAME_SECONDS;
+let score = 0;
+let loopTimer = null;
+let hideTimer = null;
+let currentHole = null;
+let lastHoleIndex = -1;
+let combo = 0;
+
+let playerName = localStorage.getItem('mole_player_name') || '';
+let currentDiff = 'normal';
+
+/* 難易度別ハイスコア */
+const HISCORE_KEY = 'mole_hiscore_v2'; // {easy:0, normal:0, hard:0}
+function getHiscoreAll(){
+  const raw = localStorage.getItem(HISCORE_KEY);
+  if(!raw) return {easy:0, normal:0, hard:0};
+  try{ const o = JSON.parse(raw); return {easy:o.easy||0, normal:o.normal||0, hard:o.hard||0}; }catch{ return {easy:0, normal:0, hard:0}; }
+}
+function setHiscore(diff, value){
+  const all = getHiscoreAll();
+  all[diff] = value;
+  localStorage.setItem(HISCORE_KEY, JSON.stringify(all));
+}
+function getHiscore(diff){
+  return getHiscoreAll()[diff] || 0;
+}
+
+/* リーダーボード（難易度別Top10） */
+const LB_KEY = 'mole_lb_v1'; // {easy:[], normal:[], hard:[]}
+function getLeaderboard(){
+  const raw = localStorage.getItem(LB_KEY);
+  if(!raw) return {easy:[], normal:[], hard:[]};
+  try{ return JSON.parse(raw); }catch{ return {easy:[], normal:[], hard:[]}; }
+}
+function setLeaderboard(data){
+  localStorage.setItem(LB_KEY, JSON.stringify(data));
+}
+function addScore(diff, name, score){
+  const lb = getLeaderboard();
+  const now = new Date();
+  const item = { name, score, at: now.toISOString() };
+  if(!lb[diff]) lb[diff] = [];
+  lb[diff].push(item);
+  lb[diff] = lb[diff].sort((a,b)=> b.score - a.score).slice(0,10);
+  setLeaderboard(lb);
+}
+function formatDate(iso){
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const da = String(d.getDate()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${y}/${m}/${da} ${hh}:${mm}`;
+}
+function renderLeaderboard(diff){
+  const lb = getLeaderboard();
+  const list = lb[diff] || [];
+  rankBody.innerHTML = '';
+  if(list.length===0){
+    rankBody.innerHTML = `<tr><td colspan="4" style="opacity:.7">まだスコアがありません。</td></tr>`;
+    return;
+  }
+  list.forEach((row, i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${escapeHtml(row.name)}</td>
+      <td><b>${row.score}</b></td>
+      <td style="opacity:.85">${formatDate(row.at)}</td>
+    `;
+    rankBody.appendChild(tr);
+  });
+}
+function getActiveTabDiff(){
+  const active = tabButtons.find(b=>b.classList.contains('active'));
+  return active ? active.dataset.diff : 'easy';
+}
+function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
+/* ========= 初期化 ========= */
+function init(){
+  inputName.value = playerName;
+  inputDiff.value = localStorage.getItem('mole_last_diff') || 'normal';
+
+  buildGrid();
+  showScreen('home');
+
+  window.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape' && isPlaying){ endGame(false); }
+  });
+
+  tabButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabButtons.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderLeaderboard(btn.dataset.diff);
+    })
+  });
+  renderLeaderboard('easy');
+  updateHudHiscore();
+}
+init();
+
+/* ========= 画面切替 ========= */
+function showScreen(name){
+  [screenHome, screenGame, screenRank].forEach(el=>el.classList.remove('active'));
+  if(name==='home') screenHome.classList.add('active');
+  if(name==='game') screenGame.classList.add('active');
+  if(name==='rank') screenRank.classList.add('active');
+  hudGame.style.display = (name==='game') ? '' : 'none';
+}
+
+/* ========= グリッド構築 ========= */
+function buildGrid(){
+  grid.innerHTML = '';
+  for(let i=0;i<9;i++){
+    const hole = document.createElement('button');
+    hole.className = 'hole';
+    hole.setAttribute('role','gridcell');
+    hole.setAttribute('aria-label', '穴 ' + (i+1));
+    hole.dataset.index = i;
+    hole.innerHTML = `
+      <div class="mole" aria-hidden="true">🐹</div>
+      <div class="hitfx" aria-hidden="true">+1</div>
+    `;
+    grid.appendChild(hole);
+  }
+  holes = [...grid.querySelectorAll('.hole')];
+}
+
+/* ========= ホーム → ゲーム（まだ開始しない） ========= */
+btnGoGame.addEventListener('click', ()=>{
+  // 名前・難易度を保存
+  playerName = (inputName.value || 'Player').slice(0,16);
+  localStorage.setItem('mole_player_name', playerName);
+  currentDiff = inputDiff.value;
+  localStorage.setItem('mole_last_diff', currentDiff);
+
+  // ゲーム画面へ遷移（Ready状態）
+  showScreen('game');
+  grid.classList.add('disabled-grid');
+  startCover.style.display = 'grid';
+  readyName.textContent = playerName;
+  readyDiff.textContent = currentDiff;
+  hudName.textContent = playerName;
+  hudDiff.textContent = currentDiff;
+  updateHudHiscore();
+
+  // “未開始状態”にリセット
+  resetGameUi();
+});
+
+/* ========= 二段階目：ここで初めて開始 ========= */
+btnStartPlay.addEventListener('click', ()=>{
+  startCover.style.display = 'none';
+  grid.classList.remove('disabled-grid');
+  startGame();
+});
+
+/* Readyから戻る */
+btnBackFromReady.addEventListener('click', ()=> showScreen('home'));
+
+/* ランキングボタン（ホーム） */
+btnRanks.addEventListener('click', ()=>{
+  showScreen('rank');
+  const diff = inputDiff.value || 'easy';
+  tabButtons.forEach(b => b.classList.toggle('active', b.dataset.diff===diff));
+  renderLeaderboard(diff);
+});
+
+/* 遊び方 */
+btnHow.addEventListener('click', ()=>{
+  alert('🐹 モグラが出た穴をクリック/タップで叩こう！\n・1プレイ30秒\n・連続ヒットでボーナス\n・難易度で出現速度が変わるよ\n・ホームで難易度を選んで「ゲームへ」→ ゲーム画面で「▶ スタート」！');
+});
+
+/* ========= ランキング画面の操作 ========= */
+backHomeBtn2.addEventListener('click', ()=> showScreen('home'));
+clearRankBtn.addEventListener('click', ()=>{
+  if(confirm('この端末の全難易度のランキングを削除します。よろしいですか？')){
+    localStorage.removeItem(LB_KEY);
+    renderLeaderboard(getActiveTabDiff());
+  }
+});
+
+/* ========= ゲーム本体 ========= */
+grid.addEventListener('click', (e)=>{
+  const hole = e.target.closest('.hole');
+  if(!hole || !isPlaying) return;
+  if(!hole.classList.contains('active')) return;
+  if(hole.dataset.whacked === '1') return;
+
+  combo++;
+  let add = 1 + (combo >= COMBO_THRESHOLD ? 1 : 0);
+  score += add;
+  scoreEl.textContent = score;
+
+  hole.classList.add('flash');
+  hole.querySelector('.hitfx').textContent = add >= 2 ? `+${add}🔥` : '+1';
+  setTimeout(()=>hole.classList.remove('flash'), 450);
+
+  if (navigator.vibrate) navigator.vibrate(VIBRATE_MS);
+
+  clearTimeout(hideTimer);
+  despawn(hole);
+  scheduleNext();
+});
+
+stopBtn.addEventListener('click', ()=> endGame(false));
+backHomeBtn.addEventListener('click', ()=> { if(isPlaying) endGame(false); showScreen('home'); });
+
+function startGame(){
+  if(isPlaying) return;
+  isPlaying = true;
+  score = 0; combo = 0; timeLeft = GAME_SECONDS;
+  scoreEl.textContent = '0';
+  timeEl.textContent = String(timeLeft);
+  timebar.style.transform = 'scaleX(1)';
+  clearTimers();
+  scheduleNext();
+  tickTimer();
+}
+
+function endGame(timeup=true){
+  if(!isPlaying) return;
+  isPlaying = false;
+  clearTimers();
+  if(currentHole) despawn(currentHole);
+  currentHole = null;
+  lastHoleIndex = -1;
+
+  /* 難易度別ハイスコア更新 */
+  const oldHi = getHiscore(currentDiff);
+  if(score > oldHi){
+    setHiscore(currentDiff, score);
+  }
+  updateHudHiscore();
+
+  /* ランキング登録（手動終了も登録：運用しやすさ重視） */
+  addScore(currentDiff, playerName || 'Player', score);
+
+  const msg = timeup ? `時間切れ！ ${playerName} さんのスコアは ${score} 点` : `終了！ ${playerName} さんのスコアは ${score} 点`;
+  alert(msg);
+
+  // 終了後はReadyに戻す（次の人がすぐスタートできる）
+  resetGameUi();
+  startCover.style.display = 'grid';
+  grid.classList.add('disabled-grid');
+}
+
+function resetGameUi(){
+  scoreEl.textContent = '0';
+  timeEl.textContent = String(GAME_SECONDS);
+  timebar.style.transform = 'scaleX(1)';
+  combo = 0;
+}
+
+function clearTimers(){
+  clearTimeout(loopTimer); loopTimer = null;
+  clearTimeout(hideTimer); hideTimer = null;
+}
+
+function scheduleNext(){
+  if(!isPlaying) return;
+  const diff = DIFFICULTY[currentDiff] || DIFFICULTY.normal;
+
+  const progress = 1 - (timeLeft / GAME_SECONDS);
+  const min = diff.min * (1 - 0.35*progress);
+  const max = diff.max * (1 - 0.35*progress);
+  const wait = rand(min, max);
+
+  loopTimer = setTimeout(()=>{
+    const hole = pickHole();
+    spawn(hole);
+    const visible = diff.visible * (1 - 0.25*progress);
+    hideTimer = setTimeout(()=>{
+      combo = 0;
+      despawn(hole);
+      scheduleNext();
+    }, visible);
+  }, wait);
+}
+
+function pickHole(){
+  if(holes.length===0) return null;
+  let idx; const last = lastHoleIndex;
+  do{ idx = Math.floor(Math.random()*holes.length); }
+  while (holes.length>1 && idx === last);
+  lastHoleIndex = idx;
+  return holes[idx];
+}
+
+function spawn(hole){
+  if(!hole) return;
+  hole.classList.add('active','lit');
+  hole.dataset.whacked = '0';
+  currentHole = hole;
+}
+
+function despawn(hole){
+  if(!hole) return;
+  hole.classList.remove('active','lit');
+  hole.dataset.whacked = '0';
+  currentHole = null;
+}
+
+function tickTimer(){
+  const startedAt = performance.now();
+  const tick = ()=>{
+    if(!isPlaying) return;
+    const elapsed = (performance.now() - startedAt)/1000;
+    const remain = Math.max(0, GAME_SECONDS - Math.floor(elapsed));
+    if(remain !== timeLeft){
+      timeLeft = remain;
+      timeEl.textContent = String(timeLeft);
+      const ratio = timeLeft / GAME_SECONDS;
+      timebar.style.transform = `scaleX(${ratio})`;
+      if(timeLeft<=0){ endGame(true); return; }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function updateHudHiscore(){
+  hiscoreEl.textContent = String(getHiscore(currentDiff));
+}
+
+const rand = (min, max)=> Math.floor(Math.random()*(max-min+1))+min;
+</script>
+</body>
+</html>
